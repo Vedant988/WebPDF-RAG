@@ -29,6 +29,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY")
 PINECONE_ENVIRONMENT = os.environ.get('PINECONE_ENVIRONMENT')
 
+
 llm = Gemini(api_key=GOOGLE_API_KEY)
 embed_model = GeminiEmbedding(model_name="models/embedding-001")
 
@@ -150,11 +151,32 @@ pipeline=IngestionPipeline(
 )
 
 # pipeline.run(documents=FinalDocuments)
+def expand_query_with_gemini(original_query, llm_model):
+    prompt = f"""
+    You are an expert in query expansion techniques for information retrieval as this query will be used for retrieval from pinecone DB.  A user has provided the following query:\"{original_query}\"
+
+    Your task is to rewrite this query to make it more comprehensive and effective for searching a pinecone knowledge base.
+    Consider synonyms, related concepts, and alternative phrasing to broaden the scope of the search.
+    The goal is to retrieve the most relevant documents possible. Maintain the core intent of the query, but expand on it to increase recall.
+
+    Expanded Query:
+    """
+
+    response=llm_model.generate_content(prompt)
+    expanded_query=response.text.strip()
+    return expanded_query
+
+
+query="Internship related news and date"
+llm_genai=genai.GenerativeModel('gemini-pro')  
+expanded_query=expand_query_with_gemini(query, llm_genai)
+
+print(f"Original Query:{query}")
+print(f"Expanded Query:{expanded_query}")
 
 index=VectorStoreIndex.from_vector_store(vector_store=vector_store)
 retriever=VectorIndexRetriever(index=index,similarity_top_k=25)
 query_engine=RetrieverQueryEngine(retriever=retriever)
 
-responce=query_engine.query("What is the last date to pay hostel fees for 2025 year semester ?")
-print(responce)
-# responce : "The last date for hostel fee payment is December 26th, 2024, until 5 PM."
+responce=query_engine.query(expanded_query)
+print("Responce:\n",responce)
